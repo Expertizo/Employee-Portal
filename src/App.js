@@ -34,6 +34,7 @@ function App() {
     _.mapObject(groupedDataByEmp, (standups, empName) => {
       const employee = groupedDataByEmp[empName]
       employee.lates = 0
+      employee.blockers = []
 
       _.map(standups.reverse(), item => {
         const standupTimestamp = epochToDate(item.timestamp)
@@ -46,6 +47,14 @@ function App() {
 
         if (deadline < standupTimestamp) {
           employee.lates++
+        }
+
+        if (item.questions[2]) {
+          employee.blockers.push({
+            answer: item.questions[2].answer,
+            timestamp: standupTimestamp,
+            isLate: deadline < standupTimestamp
+          })
         }
       })
     })
@@ -60,14 +69,19 @@ function App() {
       employee.saidYes = 0
       employee.noReasons = []
       employee.lates = latesData[empName].lates
+      employee.blockers = latesData[empName].blockers
 
       _.map(standups.reverse(), item => {
+        const standupTimestamp = epochToDate(item.timestamp)
         const firstAnswer = item.questions[0].answer
 
         if (firstAnswer.toLowerCase().indexOf('yes') === 0) {
           employee.saidYes++
         } else {
-          employee.noReasons.push(firstAnswer)
+          employee.noReasons.push({
+            answer: firstAnswer,
+            timestamp: standupTimestamp
+          })
         }
       })
 
@@ -91,15 +105,11 @@ function App() {
 
         <div style={{ display: 'flex', flex: 1 }}>
           {performances && Object.keys(performances).map((empName) => {
-            const { performance, message, noReasons, lates } = performances[empName]
+            const { performance, message, noReasons, lates, blockers } = performances[empName]
             return (
               <div style={{ width: '22%', margin: 20, overflow: 'scroll' }}>
                 <DoghnutChart
-                  empName={empName}
-                  percentage={performance}
-                  message={message}
-                  noReasons={noReasons}
-                  lates={lates}
+                  data={{ empName, performance, message, noReasons, lates, blockers }}
                   />
               </div>
             )
