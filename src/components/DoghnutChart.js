@@ -16,7 +16,7 @@ class App extends Component {
     const { noReasons, blockers } = this.props.data
     const list = title === '"No" Reasons' ? noReasons : blockers
 
-    return <table border='2' className='width'>
+    return <table border='2' className='table'>
       <tr>
         <th>{title}</th>
       </tr>
