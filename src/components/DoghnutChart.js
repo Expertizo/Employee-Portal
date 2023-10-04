@@ -5,7 +5,7 @@ import moment from 'moment';
 const CanvasJSChart = CanvasJSReact.CanvasJSChart;
 class App extends Component {
   renderWithDates(item) {
-    let rendering = item.answer + '<br /> <b>' + moment(item.timestamp).format('ddd, D MMM YYYY') + '</b>'
+    let rendering = item.answer + '<br /> <b>' + moment(item.timestamp).format('ddd, Do MMM YYYY') + '</b>'
     if (item.isLate) {
       rendering += ' <span style="color: red">(Late)</span>'
     }
