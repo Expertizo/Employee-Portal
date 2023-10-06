@@ -1,14 +1,20 @@
 import './App.css';
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import moment from 'moment'
 import _ from 'underscore'
-import { epoch, epochToDate } from './utils/date'
+import { epoch, epochToDate, getCurrentMonthStartAndEndDate } from './utils/date'
 import DoghnutChart from './components/DoghnutChart'
 import { getStandupReports } from './config/api'
 
 function App() {
-  const [startDate, setStartDate] = useState()
-  const [endDate, setEndDate] = useState()
+  const { firstDay, lastDay } = getCurrentMonthStartAndEndDate()
+  const [startDate, setStartDate] = useState(moment(firstDay).format('YYYY-MM-DD'))
+  const [endDate, setEndDate] = useState(moment(lastDay).format('YYYY-MM-DD'))
   const [performances, setPerformances] = useState()
+
+  useEffect(() => {
+    getReports()
+  }, [])
 
   const getReports = async () => {
     const after = epoch(startDate)
@@ -95,8 +101,8 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div>
-          <input type='date' placeholder='Start date' onChange={(e) => setStartDate(e.target.value)} />
-          <input min={startDate} type='date' placeholder='End date' onChange={(e) => setEndDate(e.target.value)} />
+          <input type='date' placeholder='Start date' onChange={(e) => setStartDate(e.target.value)} value={startDate} />
+          <input min={startDate} type='date' placeholder='End date' onChange={(e) => setEndDate(e.target.value)}  value={endDate} />
           <button
             onClick={getReports}
             disabled={!startDate || !endDate}

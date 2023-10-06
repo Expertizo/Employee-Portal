@@ -8,7 +8,16 @@ function epochToDate(ep) {
   return new Date(d.setUTCSeconds(utcSeconds))
 }
 
+function getCurrentMonthStartAndEndDate() {
+  var date = new Date();
+  var firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  var lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+  return { firstDay, lastDay }
+}
+
 export {
   epoch,
-  epochToDate
+  epochToDate,
+  getCurrentMonthStartAndEndDate
 }
