@@ -10,15 +10,23 @@ import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import InputLabel from '@mui/material/InputLabel';
+import FormControl from '@mui/material/FormControl';
+import CircularProgress from '@mui/material/CircularProgress';
 import { getStandupReports } from './config/api'
 
 function App() {
   const { firstDay, lastDay } = getCurrentMonthStartAndEndDate()
   const [startDate, setStartDate] = useState(moment(firstDay))
   const [endDate, setEndDate] = useState(moment(lastDay))
+  const [loading, setLoading] = useState(true)
   const [firstStandups, setFirstStandups] = useState([])
   const [secondStandups, setSecondStandups] = useState([])
   const [performances, setPerformances] = useState()
+  const [allEmployees, setAllEmployees] = useState([])
+  const [currentEmployee, setCurrentEmployee] = useState('all')
   const [addUnfilledStandupB, setAddUnfilledStandupB] = useState(false)
 
   useEffect(() => {
@@ -27,19 +35,24 @@ function App() {
 
   useEffect(() => {
     prepareReportsAgain()
-  }, [addUnfilledStandupB])
+  }, [addUnfilledStandupB, currentEmployee])
 
   const getReports = async () => {
+    setLoading(true)
+
     const after = epoch(startDate)
     const before = epoch(endDate)
 
     const firstStandupReport = await getStandupReports({ standupId: 107800, before, after })
     setFirstStandups(firstStandupReport)
+    updateAllEmployees(firstStandupReport)
     const latesData = getLates(firstStandupReport)
 
     const lastStandupReport = await getStandupReports({ standupId: 107801, before, after })
     setSecondStandups(lastStandupReport)
     getPerformance(lastStandupReport, latesData)
+
+    setLoading(false)
   }
 
   const prepareReportsAgain = async () => {
@@ -47,8 +60,17 @@ function App() {
     getPerformance(secondStandups, latesData)
   }
 
+  const updateAllEmployees = (standupReport) => {
+    const allNames = _.uniq(_.map(standupReport, item => item.member.realname))
+    setAllEmployees(allNames)
+  }
+
   const groupByEmp = (data) => {
-    const empNameExposedData = _.map(data, item => {
+    let filteredData = data
+    if (currentEmployee !== 'all') {
+      filteredData = _.filter(filteredData, item => item.member.realname === currentEmployee)
+    }
+    const empNameExposedData = _.map(filteredData, item => {
       return { ...item, emp_name: item.member.realname }
     })
     return _.groupBy(empNameExposedData, 'emp_name')
@@ -150,6 +172,19 @@ function App() {
             variant="contained">Check Performances</Button>
         </div>
         <div className="header-container">
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel id="demo-simple-select-label">Employee</InputLabel>
+            <Select
+              disabled={!allEmployees.length}
+              labelId="demo-simple-select-label"
+              value={currentEmployee}
+              label="Employee"
+              onChange={e => setCurrentEmployee(e.target.value)}
+            >
+              <MenuItem value={'all'}>All</MenuItem>
+              {allEmployees.map(item => <MenuItem value={item}>{item}</MenuItem>)}
+            </Select>
+          </FormControl>
           <FormControlLabel
             control={
               <Switch
@@ -161,9 +196,11 @@ function App() {
             label="Count Unfilled Standup Beta in Performance"
           />
         </div>
-
-        <div style={{ display: 'flex', flex: 1 }}>
-          {performances && Object.keys(performances).map((empName) => {
+        {loading && <div className="center">
+          <CircularProgress />
+        </div>}
+        <div style={{ display: 'flex', flex: 1, justifyContent: 'center' }}>
+          {!loading && performances && Object.keys(performances).map((empName) => {
             const { performance, message, noReasons, lates, blockers,
               notFilledBeta } = performances[empName]
             return (
