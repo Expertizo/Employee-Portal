@@ -5,17 +5,28 @@ import _ from 'underscore'
 import { epoch, epochToDate, getCurrentMonthStartAndEndDate } from './utils/date'
 import DoghnutChart from './components/DoghnutChart'
 import Switch from '@mui/material/Switch'
+import Button from '@mui/material/Button';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import { getStandupReports } from './config/api'
 
 function App() {
   const { firstDay, lastDay } = getCurrentMonthStartAndEndDate()
-  const [startDate, setStartDate] = useState(moment(firstDay).format('YYYY-MM-DD'))
-  const [endDate, setEndDate] = useState(moment(lastDay).format('YYYY-MM-DD'))
+  const [startDate, setStartDate] = useState(moment(firstDay))
+  const [endDate, setEndDate] = useState(moment(lastDay))
+  const [firstStandups, setFirstStandups] = useState([])
+  const [secondStandups, setSecondStandups] = useState([])
   const [performances, setPerformances] = useState()
   const [addUnfilledStandupB, setAddUnfilledStandupB] = useState(false)
 
   useEffect(() => {
     getReports()
+  }, [])
+
+  useEffect(() => {
+    prepareReportsAgain()
   }, [addUnfilledStandupB])
 
   const getReports = async () => {
@@ -23,10 +34,17 @@ function App() {
     const before = epoch(endDate)
 
     const firstStandupReport = await getStandupReports({ standupId: 107800, before, after })
+    setFirstStandups(firstStandupReport)
     const latesData = getLates(firstStandupReport)
 
     const lastStandupReport = await getStandupReports({ standupId: 107801, before, after })
+    setSecondStandups(lastStandupReport)
     getPerformance(lastStandupReport, latesData)
+  }
+
+  const prepareReportsAgain = async () => {
+    const latesData = getLates(firstStandups)
+    getPerformance(secondStandups, latesData)
   }
 
   const groupByEmp = (data) => {
@@ -94,7 +112,7 @@ function App() {
         } else {
           employee.noReasons.push({
             answer: firstAnswer,
-            ...(item.timestamp && {timestamp: standupTimestamp})
+            ...(item.timestamp && { timestamp: standupTimestamp })
           })
         }
       })
@@ -108,17 +126,40 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <div>
-          <input type='date' placeholder='Start date' onChange={(e) => setStartDate(e.target.value)} value={startDate} />
-          <input min={startDate} type='date' placeholder='End date' onChange={(e) => setEndDate(e.target.value)} value={endDate} />
-          <button
+        <div className="header-container">
+          <LocalizationProvider dateAdapter={AdapterMoment}>
+            <DatePicker
+              label="Start date"
+              onChange={setStartDate}
+              value={startDate}
+              format={'DD-MM-YYYY'}
+            />
+          </LocalizationProvider>
+          <LocalizationProvider dateAdapter={AdapterMoment}>
+            <DatePicker
+              minDate={startDate}
+              label="End date"
+              onChange={setEndDate}
+              value={endDate}
+              format={'DD-MM-YYYY'}
+            />
+          </LocalizationProvider>
+          <Button
             onClick={getReports}
             disabled={!startDate || !endDate}
-          >Check Performances</button>
-          <Switch
-            checked={addUnfilledStandupB}
-            onChange={() => setAddUnfilledStandupB(!addUnfilledStandupB)}
-          /> Count Unfilled Standup Beta in Performance
+            variant="contained">Check Performances</Button>
+        </div>
+        <div className="header-container">
+          <FormControlLabel
+            control={
+              <Switch
+                label="Gilad Gray"
+                checked={addUnfilledStandupB}
+                onChange={() => setAddUnfilledStandupB(!addUnfilledStandupB)}
+              />
+            }
+            label="Count Unfilled Standup Beta in Performance"
+          />
         </div>
 
         <div style={{ display: 'flex', flex: 1 }}>

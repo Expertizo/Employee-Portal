@@ -32,12 +32,30 @@
   font-size: 14px;
 }
 
+.header-container {
+  margin: 20px;
+  padding: 20px;
+  background-color: white;
+  width: 50%;
+  align-self: center;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-around;
+  border: 2px solid #84A6D0;
+  color: black;
+}
+
 .MuiTableContainer-root {
   margin-top: 20px;
 }
 
 .MuiTableContainer-root th {
   font-size: 20px;
+}
+
+.MuiTextField-root {
+  background-color: white;
 }
 
 @keyframes App-logo-spin {
