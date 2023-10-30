@@ -1,6 +1,13 @@
 import React, { Component } from 'react';
 import CanvasJSReact from '@canvasjs/react-charts';
 import moment from 'moment';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
 
 const CanvasJSChart = CanvasJSReact.CanvasJSChart;
 class App extends Component {
@@ -15,19 +22,53 @@ class App extends Component {
   renderTable(title) {
     const { noReasons, blockers } = this.props.data
     const list = title === '"No" Reasons' ? noReasons : blockers
+    const filteredList = list.filter(item => item.timestamp)
 
-    return <table border='2' className='table'>
-      <tr>
-        <th>{title}</th>
-      </tr>
-      {list.map(item => <tr>
-        <td className='font-size' dangerouslySetInnerHTML={{ __html: this.renderWithDates(item) }}></td>
-      </tr>)}
-    </table>
+    return <TableContainer component={Paper}>
+      <Table aria-label="simple table">
+        <TableHead>
+          <TableRow>
+            <TableCell><b>{title} ({filteredList.length})</b></TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {filteredList.map((item) => (
+            <TableRow
+              sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+            >
+              <TableCell component="td" scope="row">
+                <p dangerouslySetInnerHTML={{ __html: this.renderWithDates(item) }}></p>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  }
+
+  renderHeads() {
+    const { lates, notFilledBeta } = this.props.data
+
+    return <TableContainer component={Paper}>
+      <Table aria-label="simple table">
+        <TableHead>
+          <TableRow>
+            <TableCell><b>Lates</b></TableCell>
+            <TableCell>{lates}</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableHead>
+          <TableRow>
+            <TableCell><b>Not Filled Standup Beta</b></TableCell>
+            <TableCell>{notFilledBeta}</TableCell>
+          </TableRow>
+        </TableHead>
+      </Table>
+    </TableContainer>
   }
 
   render() {
-    const { empName, performance, message, noReasons, blockers, lates } = this.props.data
+    const { empName, performance, message, noReasons, blockers } = this.props.data
     const options = {
       animationEnabled: true,
       title: {
@@ -52,10 +93,8 @@ class App extends Component {
     }
     return (
       <div>
-        <CanvasJSChart options={options}
-        /* onRef={ref => this.chart = ref} */
-        />
-        <h3><u>Lates:</u> {lates}</h3>
+        <CanvasJSChart options={options} />
+        {this.renderHeads()}
         {!!noReasons.length && this.renderTable('"No" Reasons')}
         {!!blockers.length && this.renderTable('Blockers')}
       </div>

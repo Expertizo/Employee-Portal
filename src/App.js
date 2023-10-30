@@ -4,6 +4,7 @@ import moment from 'moment'
 import _ from 'underscore'
 import { epoch, epochToDate, getCurrentMonthStartAndEndDate } from './utils/date'
 import DoghnutChart from './components/DoghnutChart'
+import Switch from '@mui/material/Switch'
 import { getStandupReports } from './config/api'
 
 function App() {
@@ -11,10 +12,11 @@ function App() {
   const [startDate, setStartDate] = useState(moment(firstDay).format('YYYY-MM-DD'))
   const [endDate, setEndDate] = useState(moment(lastDay).format('YYYY-MM-DD'))
   const [performances, setPerformances] = useState()
+  const [addUnfilledStandupB, setAddUnfilledStandupB] = useState(false)
 
   useEffect(() => {
     getReports()
-  }, [])
+  }, [addUnfilledStandupB])
 
   const getReports = async () => {
     const after = epoch(startDate)
@@ -76,6 +78,12 @@ function App() {
       employee.noReasons = []
       employee.lates = latesData[empName].lates
       employee.blockers = latesData[empName].blockers
+      employee.notFilledBeta = latesData[empName].length - employee.length
+      if (addUnfilledStandupB) {
+        Array(employee.notFilledBeta).fill('').map(item => {
+          standups.push({ questions: [{ answer: "Didn't fill standup Beta" }] })
+        })
+      }
 
       _.map(standups.reverse(), item => {
         const standupTimestamp = epochToDate(item.timestamp)
@@ -86,7 +94,7 @@ function App() {
         } else {
           employee.noReasons.push({
             answer: firstAnswer,
-            timestamp: standupTimestamp
+            ...(item.timestamp && {timestamp: standupTimestamp})
           })
         }
       })
@@ -102,21 +110,26 @@ function App() {
       <header className="App-header">
         <div>
           <input type='date' placeholder='Start date' onChange={(e) => setStartDate(e.target.value)} value={startDate} />
-          <input min={startDate} type='date' placeholder='End date' onChange={(e) => setEndDate(e.target.value)}  value={endDate} />
+          <input min={startDate} type='date' placeholder='End date' onChange={(e) => setEndDate(e.target.value)} value={endDate} />
           <button
             onClick={getReports}
             disabled={!startDate || !endDate}
           >Check Performances</button>
+          <Switch
+            checked={addUnfilledStandupB}
+            onChange={() => setAddUnfilledStandupB(!addUnfilledStandupB)}
+          /> Count Unfilled Standup Beta in Performance
         </div>
 
         <div style={{ display: 'flex', flex: 1 }}>
           {performances && Object.keys(performances).map((empName) => {
-            const { performance, message, noReasons, lates, blockers } = performances[empName]
+            const { performance, message, noReasons, lates, blockers,
+              notFilledBeta } = performances[empName]
             return (
               <div style={{ width: '22%', margin: 20, overflow: 'scroll' }}>
                 <DoghnutChart
-                  data={{ empName, performance, message, noReasons, lates, blockers }}
-                  />
+                  data={{ empName, performance, message, noReasons, lates, blockers, notFilledBeta }}
+                />
               </div>
             )
           })}

@@ -32,9 +32,12 @@
   font-size: 14px;
 }
 
-.table {
-  width: 100%;
+.MuiTableContainer-root {
   margin-top: 20px;
+}
+
+.MuiTableContainer-root th {
+  font-size: 20px;
 }
 
 @keyframes App-logo-spin {
