@@ -41,8 +41,8 @@ const App = () => {
     // Fetch lists of the selected board and identify the "Done" and "Reopen" lists
     axios.get(`https://api.trello.com/1/boards/${boardId}/lists?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`)
       .then(response => {
-        const doneList = response.data.find(list => list.name.toLowerCase() === 'done');
-        const reopenList = response.data.find(list => list.name.toLowerCase() === 'reopen');
+        const doneList = response.data.find(list => list.name.toLowerCase().includes('done'));
+        const reopenList = response.data.find(list => list.name.toLowerCase().includes('reopen'));
         if (doneList) setDoneListId(doneList.id);
         if (reopenList) setReopenListId(reopenList.id);
       })
