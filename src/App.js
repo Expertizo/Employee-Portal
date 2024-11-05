@@ -70,6 +70,8 @@ const App = () => {
       .then(async (response) => {
         const cards = response.data;
         let doneCardsData = [];
+        doneCardsData.score = 0;
+        doneCardsData.reopens = 0;
   
         await Promise.all(cards.map(async (card) => {
           if (!card.idMembers.includes(memberId)) return;
@@ -114,6 +116,7 @@ const App = () => {
                 durationInProgress,  // Add duration in progress here,
                 score
               };
+              doneCardsData.score += score
   
               doneCardsData.push(cardData);
             }
@@ -135,6 +138,7 @@ const App = () => {
               if (cardIndex !== -1) {
                 doneCardsData[cardIndex].reopenCount = reopenCount;
                 doneCardsData[cardIndex].reopenHistory = reopenHistory;
+                doneCardsData.reopens += reopenCount
               }
             }
           }
@@ -201,6 +205,14 @@ console.log('doneCards', doneCards)
               <td>{card.score || 0}</td>
             </tr>
           ))}
+          <tr style={{ background: 'black', color: 'white', fontSize: '14pt'}}>
+            <td>-</td>
+            <td><b>Total</b></td>
+            <td>-</td>
+            <td>-</td>
+            <td><b>{doneCards.reopens} </b></td>
+            <td><b>{doneCards.score}</b></td>
+          </tr>
         </table>
       </div>
     </div>
