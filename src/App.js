@@ -88,11 +88,20 @@ const App = () => {
               const moveToInProgress = actions.find(action => action.data.listAfter.name.toLowerCase().includes('in progress'));
               const moveOutOfInProgress = actions.find(action => action.data.listBefore && action.data.listBefore.name.toLowerCase().includes('in progress') && action.data.listAfter.id !== action.data.listBefore.id);
               
+              let score = 0;
               let durationInProgress = 'N/A';
               if (moveToInProgress && moveOutOfInProgress) {
                 const timeInProgress = new Date(moveOutOfInProgress.date) - new Date(moveToInProgress.date);
                 const days = Math.floor(timeInProgress / (1000 * 60 * 60 * 24));
                 durationInProgress = `${Math.floor(timeInProgress / (1000 * 60 * 60))} hrs ${Math.floor((timeInProgress % (1000 * 60 * 60)) / (1000 * 60))} mins ${days > 0 ? ` (${days} days)` : ''}`;
+                const hrs = `${Math.floor(timeInProgress / (1000 * 60 * 60))}`
+                if (hrs <= 2) {
+                  score = 0.5
+                } else if (hrs <= 8) {
+                  score = 1
+                } else {
+                  score = 3
+                }
               }
   
               // Construct card data
@@ -102,7 +111,8 @@ const App = () => {
                 movedTime: moveDate.toLocaleTimeString(),
                 member: memberName,
                 link: card.shortUrl,
-                durationInProgress,  // Add duration in progress here
+                durationInProgress,  // Add duration in progress here,
+                score
               };
   
               doneCardsData.push(cardData);
@@ -179,14 +189,16 @@ console.log('doneCards', doneCards)
             <th>Duration Spent</th>
             <th>Moved to Done</th>
             <th>Reopened</th>
+            <th>Score</th>
           </tr>
           {doneCards.map((card, index) => (
             <tr key={index}>
-              <td>{index + 1}</td>
+              <td>{index + 1}. </td>
               <td><a href={card.link} target="_blank"><strong>{card.name}</strong></a></td>
               <td>{card.durationInProgress}</td>
               <td>{card.movedDate} at {card.movedTime}</td>
               <td>{card.reopenCount || 0} times</td>
+              <td>{card.score || 0}</td>
             </tr>
           ))}
         </table>
