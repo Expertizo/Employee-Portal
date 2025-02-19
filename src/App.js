@@ -11,6 +11,7 @@ const App = () => {
   const [doneListId, setDoneListId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [filter, setFilter] = useState("custom");
   const [reopenListId, setReopenListId] = useState('');
 
   const TRELLO_API_KEY = process.env.REACT_APP_TRELLO_API_KEY
@@ -58,9 +59,45 @@ const App = () => {
     }
   };
 
+  const calculateDateRange = (filter) => {
+    const now = new Date();
+    let start = "";
+    let end = now.toISOString().split("T")[0]; // Current date as end date
+
+    switch (filter) {
+      case "currentMonth":
+        start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+        break;
+      case "lastMonth":
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split("T")[0];
+        end = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0];
+        break;
+      case "last3Months":
+        start = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().split("T")[0];
+        break;
+      default:
+        break;
+    }
+
+    return { start, end };
+  };
+
+  const handleFilterChange = (selectedFilter) => {
+    setFilter(selectedFilter);
+    if (selectedFilter !== "custom") {
+      const { start, end } = calculateDateRange(selectedFilter);
+      setStartDate(start);
+      setEndDate(end);
+      if (doneListId && selectedMember) {
+        fetchCardCount(doneListId, selectedMember, start, end);
+      }
+    }
+  };
+
   const handleDateChange = (start, end) => {
     setStartDate(start);
     setEndDate(end);
+    setFilter("custom");
     if (doneListId && selectedMember) {
       fetchCardCount(doneListId, selectedMember, start, end);
     }
@@ -69,7 +106,7 @@ const App = () => {
   const fetchCardCount = async (doneListId, memberId, start, end) => {
     setLoading(true)
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  
+
     try {
       const response = await axios.get(
         `https://api.trello.com/1/lists/${doneListId}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`
@@ -79,14 +116,14 @@ const App = () => {
       doneCardsData.score = 0;
       doneCardsData.deadlineMissedCount = 0;
       doneCardsData.reopens = 0;
-  
+
       for (let i = 0; i < cards.length; i += 50) {
         const batch = cards.slice(i, i + 50);
-  
+
         await Promise.all(
           batch.map(async (card) => {
             if (!card.idMembers.includes(memberId)) return;
-  
+
             try {
               const actionsResponse = await axios.get(
                 `https://api.trello.com/1/cards/${card.id}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=updateCard:idList,commentCard`
@@ -114,8 +151,8 @@ const App = () => {
                     memberId === "all"
                       ? "All Members"
                       : card.idMembers.find((member) => member.id === memberId)
-                          ?.fullName || "Unknown Member";
-  
+                        ?.fullName || "Unknown Member";
+
                   // Calculate time spent in "In Progress"
                   const moveToInProgress = actions.find((action) =>
                     action.type === "updateCard" &&
@@ -132,7 +169,7 @@ const App = () => {
                         .includes("in progress") &&
                       action.data.listAfter.id !== action.data.listBefore.id
                   );
-  
+
                   let score = 0;
                   let durationInProgress = "N/A";
                   if (moveToInProgress && moveOutOfInProgress) {
@@ -156,7 +193,7 @@ const App = () => {
                       score = 3;
                     }
                   }
-  
+
                   // Construct card data
                   const cardData = {
                     name: card.name,
@@ -173,20 +210,20 @@ const App = () => {
                   doneCardsData.push(cardData);
                 }
               }
-  
+
               // Fetch reopen occurrences
               if (reopenListId) {
                 const reopenActions = actions.filter(
                   (action) => action.type === "updateCard" && action.data.listAfter.id === reopenListId
                 );
                 const reopenCount = reopenActions.length;
-  
+
                 if (reopenCount > 0) {
                   const reopenHistory = reopenActions.map((action) => ({
                     moveDate: new Date(action.date).toLocaleString(),
                     listName: action.data.listAfter.name,
                   }));
-  
+
                   // Add reopen count and history to cardData
                   const cardIndex = doneCardsData.findIndex(
                     (cardData) => cardData.name === card.name
@@ -203,7 +240,7 @@ const App = () => {
             }
           })
         );
-  
+
         if (i + 50 < cards.length) {
           console.log(
             `Processed batch ${i / 50 + 1}. Waiting for 2 seconds before the next batch.`
@@ -211,7 +248,7 @@ const App = () => {
           await delay(2000); // Add a 2-second delay between batches
         }
       }
-  
+
       setDoneCards(doneCardsData);
     } catch (error) {
       console.error("Error fetching cards:", error);
@@ -219,10 +256,10 @@ const App = () => {
       setLoading(false)
     }
   };
-  
-  
 
-console.log('doneCards', doneCards)
+
+
+  console.log('doneCards', doneCards)
 
 
   return (
@@ -249,13 +286,31 @@ console.log('doneCards', doneCards)
         </div>
       )}
       <div>
-        <label>Start Date:</label>
-        <input type="date" value={startDate} onChange={e => handleDateChange(e.target.value, endDate)} />
+        <label>Filter by Date:</label>
+        <select onChange={(e) => handleFilterChange(e.target.value)} value={filter}>
+          <option value="custom">Custom</option>
+          <option value="currentMonth">Current Month</option>
+          <option value="lastMonth">Last Month</option>
+          <option value="last3Months">Last 3 Months</option>
+        </select>
       </div>
-      <div>
-        <label>End Date:</label>
-        <input type="date" value={endDate} onChange={e => handleDateChange(startDate, e.target.value)} />
-      </div>
+      {filter === "custom" && (
+        <div>
+          <label>Start Date:</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => handleDateChange(e.target.value, endDate)}
+          />
+          <label>End Date:</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => handleDateChange(startDate, e.target.value)}
+          />
+        </div>
+      )}
+
       {loading && <img src="https://media3.giphy.com/media/3oEjI6SIIHBdRxXI40/200w.gif" />}
       <div>
         <h2>Cards Moved into Done: {doneCards.length}</h2>
