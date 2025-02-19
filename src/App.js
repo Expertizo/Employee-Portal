@@ -77,6 +77,7 @@ const App = () => {
       const cards = response.data;
       let doneCardsData = [];
       doneCardsData.score = 0;
+      doneCardsData.deadlineMissedCount = 0;
       doneCardsData.reopens = 0;
   
       for (let i = 0; i < cards.length; i += 50) {
@@ -88,13 +89,20 @@ const App = () => {
   
             try {
               const actionsResponse = await axios.get(
-                `https://api.trello.com/1/cards/${card.id}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=updateCard:idList`
+                `https://api.trello.com/1/cards/${card.id}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=updateCard:idList,commentCard`
               );
               const actions = actionsResponse.data;
-  
+
+              // Count "Deadline missed" comments
+              const deadlineMissedCount = actions.filter(
+                (action) =>
+                  action.type === "commentCard" &&
+                  action.data.text.includes("Deadline missed an hour ago!")
+              ).length;
+
               // Find when the card moved to "Done"
               const moveToDoneAction = actions.find(
-                (action) => action.data.listAfter.id === doneListId
+                (action) => action.type === "updateCard" && action.data.listAfter.id === doneListId
               );
               if (moveToDoneAction) {
                 const moveDate = new Date(moveToDoneAction.date);
@@ -110,12 +118,14 @@ const App = () => {
   
                   // Calculate time spent in "In Progress"
                   const moveToInProgress = actions.find((action) =>
+                    action.type === "updateCard" &&
                     action.data.listAfter.name
                       .toLowerCase()
                       .includes("in progress")
                   );
                   const moveOutOfInProgress = actions.find(
                     (action) =>
+                      action.type === "updateCard" &&
                       action.data.listBefore &&
                       action.data.listBefore.name
                         .toLowerCase()
@@ -155,10 +165,11 @@ const App = () => {
                     member: memberName,
                     link: card.shortUrl,
                     durationInProgress,
-                    score,
+                    deadlineMissedCount, // Add the count to the card data
+                    score
                   };
                   doneCardsData.score += score;
-  
+                  doneCardsData.deadlineMissedCount += deadlineMissedCount
                   doneCardsData.push(cardData);
                 }
               }
@@ -166,7 +177,7 @@ const App = () => {
               // Fetch reopen occurrences
               if (reopenListId) {
                 const reopenActions = actions.filter(
-                  (action) => action.data.listAfter.id === reopenListId
+                  (action) => action.type === "updateCard" && action.data.listAfter.id === reopenListId
                 );
                 const reopenCount = reopenActions.length;
   
@@ -247,7 +258,7 @@ console.log('doneCards', doneCards)
       </div>
       {loading && <img src="https://media3.giphy.com/media/3oEjI6SIIHBdRxXI40/200w.gif" />}
       <div>
-            <h2>Cards Moved into Done: {doneCards.length}</h2>
+        <h2>Cards Moved into Done: {doneCards.length}</h2>
         <table border="1">
           <tr>
             <th>S. No.</th>
@@ -255,24 +266,27 @@ console.log('doneCards', doneCards)
             <th>Duration Spent</th>
             <th>Moved to Done</th>
             <th>Reopened</th>
+            <th>Deadline Missed</th>
             <th>Score</th>
           </tr>
           {doneCards.map((card, index) => (
             <tr key={index}>
               <td>{index + 1}. </td>
               <td><a href={card.link} target="_blank"><strong>{card.name}</strong></a></td>
-              <td>{card.durationInProgress}</td>
+              <td>{card.durationInProgress || "N/A"}</td>
               <td>{card.movedDate} at {card.movedTime}</td>
-              <td>{card.reopenCount || 0} times</td>
+              <td>{card.reopenCount || 0}</td>
+              <td>{card.deadlineMissedCount || 0}</td>
               <td>{card.score || 0}</td>
             </tr>
           ))}
-          <tr style={{ background: 'black', color: 'white', fontSize: '14pt'}}>
+          <tr style={{ background: 'black', color: 'white', fontSize: '14pt' }}>
             <td>-</td>
             <td><b>Total</b></td>
             <td>-</td>
             <td>-</td>
             <td><b>{doneCards.reopens} </b></td>
+            <td><b>{doneCards.deadlineMissedCount} </b></td>
             <td><b>{doneCards.score}</b></td>
           </tr>
         </table>
