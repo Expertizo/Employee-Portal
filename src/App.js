@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const App = () => {
+  const [loading, setLoading] = useState(false)
   const [boards, setBoards] = useState([]);
   const [members, setMembers] = useState([]);
   const [selectedBoard, setSelectedBoard] = useState('');
@@ -65,89 +66,149 @@ const App = () => {
     }
   };
 
-  const fetchCardCount = (doneListId, memberId, start, end) => {
-    axios.get(`https://api.trello.com/1/lists/${doneListId}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`)
-      .then(async (response) => {
-        const cards = response.data;
-        let doneCardsData = [];
-        doneCardsData.score = 0;
-        doneCardsData.reopens = 0;
+  const fetchCardCount = async (doneListId, memberId, start, end) => {
+    setLoading(true)
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   
-        await Promise.all(cards.map(async (card) => {
-          if (!card.idMembers.includes(memberId)) return;
+    try {
+      const response = await axios.get(
+        `https://api.trello.com/1/lists/${doneListId}/cards?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}`
+      );
+      const cards = response.data;
+      let doneCardsData = [];
+      doneCardsData.score = 0;
+      doneCardsData.reopens = 0;
   
-          const actionsResponse = await axios.get(`https://api.trello.com/1/cards/${card.id}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=updateCard:idList`);
-          const actions = actionsResponse.data;
+      for (let i = 0; i < cards.length; i += 50) {
+        const batch = cards.slice(i, i + 50);
   
-          // Find when the card moved to "Done"
-          const moveToDoneAction = actions.find(action => action.data.listAfter.id === doneListId);
-          if (moveToDoneAction) {
-            const moveDate = new Date(moveToDoneAction.date);
-            if ((!start || moveDate >= new Date(start)) && (!end || moveDate <= new Date(end))) {
-              const memberName = memberId === 'all' ? 'All Members' : card.idMembers.find(member => member.id === memberId)?.fullName || 'Unknown Member';
+        await Promise.all(
+          batch.map(async (card) => {
+            if (!card.idMembers.includes(memberId)) return;
   
-              // Calculate time spent in "In Progress"
-              const moveToInProgress = actions.find(action => action.data.listAfter.name.toLowerCase().includes('in progress'));
-              const moveOutOfInProgress = actions.find(action => action.data.listBefore && action.data.listBefore.name.toLowerCase().includes('in progress') && action.data.listAfter.id !== action.data.listBefore.id);
-              
-              let score = 0;
-              let durationInProgress = 'N/A';
-              if (moveToInProgress && moveOutOfInProgress) {
-                const timeInProgress = new Date(moveOutOfInProgress.date) - new Date(moveToInProgress.date);
-                const days = Math.floor(timeInProgress / (1000 * 60 * 60 * 24));
-                durationInProgress = `${Math.floor(timeInProgress / (1000 * 60 * 60))} hrs ${Math.floor((timeInProgress % (1000 * 60 * 60)) / (1000 * 60))} mins ${days > 0 ? ` (${days} days)` : ''}`;
-                const hrs = `${Math.floor(timeInProgress / (1000 * 60 * 60))}`
-                if (hrs <= 2) {
-                  score = 0.5
-                } else if (hrs <= 8) {
-                  score = 1
-                } else {
-                  score = 3
+            try {
+              const actionsResponse = await axios.get(
+                `https://api.trello.com/1/cards/${card.id}/actions?key=${TRELLO_API_KEY}&token=${TRELLO_TOKEN}&filter=updateCard:idList`
+              );
+              const actions = actionsResponse.data;
+  
+              // Find when the card moved to "Done"
+              const moveToDoneAction = actions.find(
+                (action) => action.data.listAfter.id === doneListId
+              );
+              if (moveToDoneAction) {
+                const moveDate = new Date(moveToDoneAction.date);
+                if (
+                  (!start || moveDate >= new Date(start)) &&
+                  (!end || moveDate <= new Date(end))
+                ) {
+                  const memberName =
+                    memberId === "all"
+                      ? "All Members"
+                      : card.idMembers.find((member) => member.id === memberId)
+                          ?.fullName || "Unknown Member";
+  
+                  // Calculate time spent in "In Progress"
+                  const moveToInProgress = actions.find((action) =>
+                    action.data.listAfter.name
+                      .toLowerCase()
+                      .includes("in progress")
+                  );
+                  const moveOutOfInProgress = actions.find(
+                    (action) =>
+                      action.data.listBefore &&
+                      action.data.listBefore.name
+                        .toLowerCase()
+                        .includes("in progress") &&
+                      action.data.listAfter.id !== action.data.listBefore.id
+                  );
+  
+                  let score = 0;
+                  let durationInProgress = "N/A";
+                  if (moveToInProgress && moveOutOfInProgress) {
+                    const timeInProgress =
+                      new Date(moveOutOfInProgress.date) -
+                      new Date(moveToInProgress.date);
+                    const days = Math.floor(
+                      timeInProgress / (1000 * 60 * 60 * 24)
+                    );
+                    durationInProgress = `${Math.floor(
+                      timeInProgress / (1000 * 60 * 60)
+                    )} hrs ${Math.floor(
+                      (timeInProgress % (1000 * 60 * 60)) / (1000 * 60)
+                    )} mins ${days > 0 ? ` (${days} days)` : ""}`;
+                    const hrs = Math.floor(timeInProgress / (1000 * 60 * 60));
+                    if (hrs <= 2) {
+                      score = 0.5;
+                    } else if (hrs <= 8) {
+                      score = 1;
+                    } else {
+                      score = 3;
+                    }
+                  }
+  
+                  // Construct card data
+                  const cardData = {
+                    name: card.name,
+                    movedDate: moveDate.toLocaleDateString(),
+                    movedTime: moveDate.toLocaleTimeString(),
+                    member: memberName,
+                    link: card.shortUrl,
+                    durationInProgress,
+                    score,
+                  };
+                  doneCardsData.score += score;
+  
+                  doneCardsData.push(cardData);
                 }
               }
   
-              // Construct card data
-              const cardData = {
-                name: card.name,
-                movedDate: moveDate.toLocaleDateString(),
-                movedTime: moveDate.toLocaleTimeString(),
-                member: memberName,
-                link: card.shortUrl,
-                durationInProgress,  // Add duration in progress here,
-                score
-              };
-              doneCardsData.score += score
+              // Fetch reopen occurrences
+              if (reopenListId) {
+                const reopenActions = actions.filter(
+                  (action) => action.data.listAfter.id === reopenListId
+                );
+                const reopenCount = reopenActions.length;
   
-              doneCardsData.push(cardData);
-            }
-          }
+                if (reopenCount > 0) {
+                  const reopenHistory = reopenActions.map((action) => ({
+                    moveDate: new Date(action.date).toLocaleString(),
+                    listName: action.data.listAfter.name,
+                  }));
   
-          // Fetch reopen occurrences
-          if (reopenListId) {
-            const reopenActions = actions.filter(action => action.data.listAfter.id === reopenListId);
-            const reopenCount = reopenActions.length;
-  
-            if (reopenCount > 0) {
-              const reopenHistory = reopenActions.map(action => ({
-                moveDate: new Date(action.date).toLocaleString(),
-                listName: action.data.listAfter.name
-              }));
-  
-              // Add reopen count and history to cardData
-              const cardIndex = doneCardsData.findIndex(cardData => cardData.name === card.name);
-              if (cardIndex !== -1) {
-                doneCardsData[cardIndex].reopenCount = reopenCount;
-                doneCardsData[cardIndex].reopenHistory = reopenHistory;
-                doneCardsData.reopens += reopenCount
+                  // Add reopen count and history to cardData
+                  const cardIndex = doneCardsData.findIndex(
+                    (cardData) => cardData.name === card.name
+                  );
+                  if (cardIndex !== -1) {
+                    doneCardsData[cardIndex].reopenCount = reopenCount;
+                    doneCardsData[cardIndex].reopenHistory = reopenHistory;
+                    doneCardsData.reopens += reopenCount;
+                  }
+                }
               }
+            } catch (error) {
+              console.error(`Error fetching actions for card ${card.id}:`, error);
             }
-          }
-        }));
+          })
+        );
   
-        setDoneCards(doneCardsData);
-      })
-      .catch(error => console.error('Error fetching cards:', error));
+        if (i + 50 < cards.length) {
+          console.log(
+            `Processed batch ${i / 50 + 1}. Waiting for 2 seconds before the next batch.`
+          );
+          await delay(2000); // Add a 2-second delay between batches
+        }
+      }
+  
+      setDoneCards(doneCardsData);
+    } catch (error) {
+      console.error("Error fetching cards:", error);
+    } finally {
+      setLoading(false)
+    }
   };
+  
   
 
 console.log('doneCards', doneCards)
@@ -184,6 +245,7 @@ console.log('doneCards', doneCards)
         <label>End Date:</label>
         <input type="date" value={endDate} onChange={e => handleDateChange(startDate, e.target.value)} />
       </div>
+      {loading && <img src="https://media3.giphy.com/media/3oEjI6SIIHBdRxXI40/200w.gif" />}
       <div>
             <h2>Cards Moved into Done: {doneCards.length}</h2>
         <table border="1">
