@@ -153,38 +153,46 @@ const App = () => {
                       : card.idMembers.find((member) => member.id === memberId)
                         ?.fullName || "Unknown Member";
 
-                  // Calculate time spent in "In Progress"
-                  const moveToInProgress = actions.find((action) =>
+                  // Calculate total time spent in "In Progress"
+                  const inProgressActions = actions.filter((action) =>
                     action.type === "updateCard" &&
-                    action.data.listAfter.name
-                      .toLowerCase()
-                      .includes("in progress")
+                    action.data.listAfter.name.toLowerCase().includes("in progress")
                   );
-                  const moveOutOfInProgress = actions.find(
-                    (action) =>
-                      action.type === "updateCard" &&
-                      action.data.listBefore &&
-                      action.data.listBefore.name
-                        .toLowerCase()
-                        .includes("in progress") &&
-                      action.data.listAfter.id !== action.data.listBefore.id
+                  const outOfProgressActions = actions.filter((action) =>
+                    action.type === "updateCard" &&
+                    action.data.listBefore &&
+                    action.data.listBefore.name.toLowerCase().includes("in progress") &&
+                    action.data.listAfter.id !== action.data.listBefore.id
                   );
-
-                  let score = 0;
-                  let durationInProgress = "N/A";
-                  if (moveToInProgress && moveOutOfInProgress) {
-                    const timeInProgress =
-                      new Date(moveOutOfInProgress.date) -
-                      new Date(moveToInProgress.date);
-                    const days = Math.floor(
-                      timeInProgress / (1000 * 60 * 60 * 24)
+  
+                  let totalTimeInProgress = 0;
+  
+                  for (let i = 0; i < inProgressActions.length; i++) {
+                    const entry = new Date(inProgressActions[i]?.date);
+  
+                    // Find the next exit action after this entry
+                    const exit = outOfProgressActions.find(
+                      (action) => new Date(action.date) > entry
                     );
-                    durationInProgress = `${Math.floor(
-                      timeInProgress / (1000 * 60 * 60)
-                    )} hrs ${Math.floor(
-                      (timeInProgress % (1000 * 60 * 60)) / (1000 * 60)
-                    )} mins ${days > 0 ? ` (${days} days)` : ""}`;
-                    const hrs = Math.floor(timeInProgress / (1000 * 60 * 60));
+  
+                    if (exit) {
+                      const exitDate = new Date(exit.date);
+                      totalTimeInProgress += exitDate - entry;
+                    }
+                  }
+  
+                  let durationInProgress = "N/A";
+                  let score = 0;
+  
+                  if (totalTimeInProgress > 0) {
+                    const days = (totalTimeInProgress / (1000 * 60 * 60 * 24)).toFixed(1);
+                    const hrs = Math.floor(totalTimeInProgress / (1000 * 60 * 60));
+                    const mins = Math.floor((totalTimeInProgress % (1000 * 60 * 60)) / (1000 * 60));
+                    durationInProgress = `${hrs} hrs ${mins} mins ${
+                      days > 0 ? `(${days} days)` : ""
+                    }`;
+  
+                    // Calculate score based on time spent
                     if (hrs <= 2) {
                       score = 0.5;
                     } else if (hrs <= 8) {
